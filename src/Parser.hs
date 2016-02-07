@@ -1,13 +1,14 @@
 {-# LANGUAGE BangPatterns #-}
 module Parser (getWords) where
-
 import System.Environment
 import System.IO
 import Types
 import Control.Monad
 import Text.Regex.Posix
-import qualified Data.ByteString.Lazy as B
-import qualified Data.ByteString.Lazy.Char8 as BC
+import System.Directory
+import System.FilePath ((</>))
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.Map.Strict as M
 
 -- ================================================================================
@@ -22,11 +23,26 @@ import qualified Data.Map.Strict as M
 parseSentences :: FilePath -> IO Sentences
 parseSentences fpath = B.readFile fpath >>= \x -> return $ (BC.lines x)
 
+getRecursiveContents :: FilePath -> IO [FilePath]
+getRecursiveContents topdir = do
+  names <- getDirectoryContents topdir
+  let properNames = filter (`notElem` [".", ".."]) names
+  paths <- forM properNames $ \name -> do
+    let path = topdir </> name
+    isDirectory <- doesDirectoryExist path
+    if isDirectory
+      then getRecursiveContents path
+      else return [path]
+  return (concat paths)
+
 -- | The 'parseFiles' function parses all the files in the WSJ directory
-parseFiles :: IO Sentences
-parseFiles = (liftM concat) $ mapM parseSentences ["../WSJ-2-12/"++ n ++"/WSJ_"++ n ++ m ++ ".POS"  | n <- nn, m <- mm ]
-    where nn = (map (\x -> "0" ++ show x) [2..9])
-          mm = (map (\x -> "0" ++ show x) [0..9]) ++ map show [10..99]
+parseFiles :: FilePath -> IO Sentences
+parseFiles dir = do
+        dirs <- getRecursiveContents dir
+        -- mapM_ putStrLn dirs
+        parseSentences $ head dirs
+        -- liftM concat $ mapM parseSentences  dirs
+
 
 -- | 'matchPairs' only matches WORD/TAG pairs using a regex
 matchPairs :: Sentence -> Words
@@ -43,14 +59,13 @@ getPairs (st:stns) ws = let mt = matchPairs st in
 
 -- | 'getWords' simply parses all the fails and gets all the word/tag pairs
 getWords :: IO Sentence
-getWords = (parseFiles >>= (\snts -> return (BC.unlines $ getPairs snts [])))
+getWords = (parseFiles "../WSJ-2-12" >>= (\snts -> return (BC.unlines $ getPairs snts [])))
 
 
 -- TODO: Build maps with probabilities
 -- ================================================================================
 -- ================================== PROBABILITIES ===============================
 -- ================================================================================
-
 
 
 mapFold ls f = foldl f M.empty ls
@@ -71,6 +86,6 @@ tagCounts stn = mapFold (concat (match pat stn :: [[B.ByteString]])) add
 
 main = do
     sentence <- getWords
-    -- BC.putStrLn sentence
-    tags <- return $ tagCounts sentence
-    putStrLn $ show tags
+    BC.putStrLn sentence
+    -- tags <- return $ tagCounts sentence
+    -- putStrLn $ show tags

@@ -1,6 +1,6 @@
 module Types where
 
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString as B
 
 
 type Sentence = B.ByteString
