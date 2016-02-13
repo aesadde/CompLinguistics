@@ -8,6 +8,7 @@ import System.FilePath ((</>))
 import qualified Data.Map as M
 import Data.List(foldl')
 import Text.Regex.Posix
+import Data.List.Split(splitOn)
 
 import Types
 import Preprocess(preprocess)
@@ -19,19 +20,21 @@ import Preprocess(preprocess)
 
 mapFold ls f = foldl' f M.empty ls
 
--- TODO: Rethink how tags get matched
-
--- | 'tagCounts' matches all tags and builds a map with the counts for the tags
-tagCounts :: Sentence -> M.Map String Int
-tagCounts stn = mapFold (concat (match pat stn :: [[String]])) add
-        where   pat = makeRegex "/+[-:!?`&'A-Z_.,]+" :: Regex
-                add :: M.Map String Int -> String -> M.Map String Int
-                add m key = M.insertWith (+) key 1 m
-
-tcounts :: [String] -> M.Map String Int -> M.Map String Int
+tcounts :: [(String,String)] -> M.Map String Int -> M.Map String Int
 tcounts [] m = m
-tcounts (st:sts) m = tcounts sts (M.insertWith (+) key 1 m)
-    where key = st =~ "/[-:!?`'A-Z_.,]+" :: String
+tcounts ((_,key):sts) m = tcounts sts (M.insertWith (+) key 1 m)
+
+parseLoop:: Handle -> [(String, String)] -> IO([(String,String)])
+parseLoop inh lst =
+    do ineof <- hIsEOF inh
+       if ineof
+        then return (reverse lst)
+        else do inpStr <- hGetLine inh
+                let lst' = (parsePair inpStr) : lst
+                parseLoop inh lst'
+
+parsePair :: String -> (String,String)
+parsePair st = let sp = splitOn "<>" st in (head sp, last sp)
 
 
 showTags :: M.Map String Int -> [String]
@@ -42,15 +45,19 @@ showTags m = map prettyTags $ M.toList m
 
 save :: FilePath -> [String] -> IO()
 save fpath m = do
-    outh <- openFile fpath AppendMode
+    outh <- openFile fpath WriteMode
     mapM (\x -> hPutStrLn outh x) m
     hClose outh
 
 main = do
-   let out = "preprocess.txt"
+   putStrLn "===== Preprocessing Files ====="
+   let prepPairs = "preprocess.txt"
    let dir = "../WSJ-2-12"
-   preprocess dir out
-   -- inh <- openFile out ReadMode
-   -- inpStr <- hGetContents inh
-   -- save "tagCounts.txt" $ showTags (tcounts (lines inpStr) M.empty)
+   preprocess dir prepPairs
+   inh <- openFile prepPairs ReadMode
+   pairsList <- parseLoop inh []
+   putStrLn "===== Starting Count building ====="
+   let tagCounts = tcounts pairsList M.empty
+   save "tagCounts.txt" $ showTags (tcounts pairsList M.empty)
+   putStrLn "===== Tag Counts generated and saved to 'tagCounts.txt' ====="
    return ()

@@ -23,6 +23,7 @@ library
                      , containers
                      , directory
                      , filepath
+                     , split
 
   default-language:    Haskell2010
 
