@@ -54,6 +54,7 @@ getRecursiveContents topdir = do
 -- | 'matchPairs' only matches WORD/TAG pairs using a regex
 matchPairs :: Sentence -> [(String,String)]
 matchPairs stn = map pair (match pat stn :: [[String]])
-    where pat = makeRegex "([a-zA-Z0-9_.,\\/'&`!?:-]+)/([-:!?`&'A-Z_.,\\|]+)" :: Regex
+    -- where pat = makeRegex "([a-zA-Z0-9_.,\\/'&`!?:-]+)/([-:!?`&'A-Z_.,\\|]+)" :: Regex
+    where pat = makeRegex "([[:graph:]]+)/([[:graph:]]+)" :: Regex
           pair ls = (head $ tail ls, last ls)
 
