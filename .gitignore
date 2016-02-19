@@ -1,4 +1,5 @@
 WSJ-*
+*.txt
 dist
 cabal-dev
 *.o
@@ -14,4 +15,4 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
-.stack-work/
+.stack-work
