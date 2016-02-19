@@ -21,6 +21,7 @@ preprocessLoop [] _ = return ()
 preprocessLoop (x:xs) outF = do
     inh <- openFile x ReadMode
     outh <- openFile outF AppendMode
+    hPutStrLn outh ("." ++ "<>" ++ ".")
     mainloop inh outh
     hClose inh
     hClose outh

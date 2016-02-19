@@ -1,30 +1,39 @@
-{-# LANGUAGE BangPatterns #-}
-module Parser where
-import System.Environment
+module Parser(parseLoop,tagTagCounts,wordTagCounts,showWordTags,tcounts,save,showTags) where
+
 import System.IO
-import Control.Monad
-import System.Directory
-import System.FilePath ((</>))
 import qualified Data.Map as M
 import Data.List(foldl')
-import Text.Regex.Posix
 import Data.List.Split(splitOn)
 
-import Types
-import Preprocess(preprocess)
-
--- TODO: Build maps with probabilities
 -- ================================================================================
--- ================================== PROBABILITIES ===============================
+-- ================================== COUNTS ===============================
 -- ================================================================================
 
 mapFold :: Foldable t => t a -> (M.Map k a1 -> a -> M.Map k a1) -> M.Map k a1
 mapFold ls f = foldl' f M.empty ls
 
+-- | 'genProb' computes P(w|t) = Count(w|tag) / Count(tag)
+--  or P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
+--  It also does add-1 smoothing by adding one to all counts
+genProb :: (String,String) -> M.Map (String,String) Int  -> M.Map String Int -> Float
+genProb (w,t) wcm tm = case M.lookup (w,t) wcm of
+    Just c  -> (log $ fromIntegral (c+1)) - (log ct)
+    Nothing -> (log $ fromIntegral 1) - (log ct)
+    where ct = fromIntegral $ case M.lookup t tm of Just t' -> t'
+
+-- ================================== COUNT TAGi|TAGi-1 ===============================
+-- TODO: function for P(tn = j | tn-1 = i ) = Count(t = i, t = j) / Count(t = i)
+-- This is also known as the tag transition distribution when we multiply over
+-- all possible tags.
+
+-- | 'tagTagCounts' builds the map (tn,tn+1) -> int
+tagTagCounts :: [(String,String)] -> M.Map (String,String) Int -> M.Map (String,String) Int
+tagTagCounts [x] m = m
+tagTagCounts (wt:wts) m = tagTagCounts wts (M.insertWith (+) tt 1 m)
+                                  where tt = (snd wt, snd $ head wts)
+
 -- ================================== COUNT WORD|TAG ===============================
--- TODO: function for P(w|t) = Count(w|tag) / Count(tag) with smoothing
--- probWordCat :: (String,String) -> Float
--- probWordCat (w,t) m = case M.lookup (w,t) m of
+-- Word emission distribution when we multiply over all possible pairings
 
 wordTagCounts :: [(String,String)] -> M.Map (String, String) Int -> M.Map (String, String) Int
 wordTagCounts [] m = m
@@ -77,22 +86,3 @@ save fpath m = do
     mapM (\x -> hPutStrLn outh x) m
     hClose outh
 -- ================================================================================
-
-main = mainLoop
-
-mainLoop = do
-   putStrLn "===== Preprocessing Files ====="
-   let prepPairs = "preprocess.txt"
-   let dir = "../WSJ-2-12"
-   preprocess dir prepPairs -- works only if file doesn't exist
-   putStrLn "===== Files preprocessed and saved to 'preprocess.txt' ====="
-   inh <- openFile prepPairs ReadMode
-   pairsList <- parseLoop inh []
-   putStrLn "===== Starting Counts ====="
-   let tagCounts = tcounts pairsList M.empty
-   save "tagCounts.txt" $ showTags tagCounts
-   putStrLn "===== Tag Counts generated and saved to 'tagCounts.txt' ====="
-   let wtCounts = wordTagCounts pairsList M.empty
-   save  "wordTagCounts.txt" $ showWordTags wtCounts
-   putStrLn "===== Word/Tag Counts generated and saved to 'wordTagCounts.txt' ====="
-   return ()

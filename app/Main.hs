@@ -1,10 +1,6 @@
 module Main where
 
-import Lib
-import Parser
-import Types
+import Tagger
 
 main :: IO ()
-main = do
-    sentences <- getWords
-    putStrLn $ head sentences
+main = tagger
