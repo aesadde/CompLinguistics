@@ -19,13 +19,21 @@ tagger = do
    pairsList <- parseLoop inh []
    putStrLn "===== Starting Counts ====="
    let tagCounts = tcounts pairsList M.empty
-   save "tagCounts.txt" $ showTags tagCounts
+   -- save "tagCounts.txt" $ showTags tagCounts
    putStrLn "===== Tag Counts generated and saved to 'tagCounts.txt' ====="
    let wtCounts = wordTagCounts pairsList M.empty
-   save  "wordTagCounts.txt" $ showWordTags wtCounts
+   -- save  "wordTagCounts.txt" $ showWordTags wtCounts
    putStrLn "===== Word/Tag Counts generated and saved to 'wordTagCounts.txt' ====="
-   let ttCounts = tagTagCounts pairsList M.empty
-   save  "tagTagCounts.txt" $ showWordTags ttCounts
+   -- Easy way to use add-1 smoothing -> use a table with all possible tag pairs
+   -- init to 1
+   let ttCounts = tagTagCounts pairsList all_bigrams
+   -- save  "tagTagCounts.txt" $ showWordTags ttCounts
+   let bigramProbs = build_probs ttCounts tagCounts
+   save  "bigrams.txt" $ showWordTags bigramProbs
+   let wordTagProbs = build_probs wtCounts tagCounts
+   save  "wtProbs.txt" $ showWordTags  wordTagProbs
+   putStrLn "==== Viterbi Init ===="
+
    return ()
 
 parse :: [String] -> IO (String)

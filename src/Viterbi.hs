@@ -1,28 +1,46 @@
 module Viterbi where
 import Data.Map(Map)
 import qualified Data.Map as M
+import Data.List(foldl')
 
-tag_set :: [String]
-tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
+type Sentence = [String]
+type BiProbMap= Map (String,String) Int
+type WTxxiagMap = Map (String,String) Int
+type TagsMap = Map String Int
+type TaggedSentence = [(String,String)]
+type Scores = Map (String,String) Float
+type BackTrack = Map (String,String) Float
 
-init_bigrams :: Map (String,String) Float
-init_bigrams =M.fromList $ zip [(x,y) | x <- tag_set, y <- tag_set] [1,1..]
+
+
+
+
+
+-- bigram_prob :: TagsMap -> BigramMap -> Map (String,String) Float
+-- bigram_prob tmap bmap = mapFold f all_bigrams
+--     where f m ((t,t'),c) =
 
 start :: String
 start = "."
+--
+-- Scores is a map (tag,word) -> Float
+-- initScore :: String -> Map (String,String) Float
+-- initScore w bmap wtmap tagmap = mapFold [(x,y) | y <- [w] ,x <- tag_set] f
+--     where f m p@(t,w) = M.insert p (wordTag_prob * tagStart_prob) m
+--             where wordTag_prob = genProb (w,t) wtmap tagmap
+--                   tagStart_prob = genProb (t,start) bmap tagmap
 
--- initScore ::
--- initScore
+-- | 'viterbi' a (very naive) implementation of the viterbi Algorithm
+-- viterbi :: Sentence -> BigramMap -> WordTagMap -> TagsMap -> TaggedSentence
+-- viterbi stn bmap wtmap tmap = viterbiStep (initScore (head stn)) M.empty
+
+viterbiStep :: Sentence -> Scores -> BackTrack -> BigramMap -> WordTagMap -> TagsMap -> TaggedSentence
+viterbiStep (st:stn) scores back bmap wtmap tmap =  undefined
+
+-- maxScore :: (String,String) -> Scores -> BigramMap -> WordTagMap -> TagsMap -> Float
+-- maxScore (pw,nw) scores bmap wtmap tagmap = maximum [ss * probtt * probWt | ss <- getScores pw]
+--     where probtt =
+--         getScores pw = foldl' (\ls sc -> case M.lookup )
 
 
--- ================================== PROBABILITIES ===============================
-
-genProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
-genProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
-    Just c -> (log $ fromIntegral c) - log ct
-    Nothing -> 0.0
-    where ct = fromIntegral $ case M.lookup w2 m2 of Just t' -> t'
-
-bigramProbMap :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
-bigramProbMap tags bigrams = undefined
 
