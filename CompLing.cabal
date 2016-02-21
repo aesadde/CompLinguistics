@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Parser,Types,Tagger,Preprocess
+  exposed-modules:     Parser,Types,Tagger,Preprocess,Viterbi
   build-depends:       base >= 4.7 && < 5
                      , regex-posix
                      , text

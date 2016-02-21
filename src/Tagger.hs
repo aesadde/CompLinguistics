@@ -7,13 +7,14 @@ import System.Environment
 import System.Exit
 import System.Directory(doesDirectoryExist)
 import qualified Data.Map as M
+import Viterbi
 
 tagger :: IO()
 tagger = do
-   args <- getArgs >>= parse
+   -- args <- getArgs >>= parse
    putStrLn "===== Preprocessing Files ====="
    let prepPairs = "preprocess.txt"
-   preprocess args prepPairs -- works only if file doesn't exist
+   preprocess "../WSJ-2-12" prepPairs -- works only if file doesn't exist
    putStrLn "===== Files preprocessed and saved to 'preprocess.txt' ====="
    inh <- openFile prepPairs ReadMode
    pairsList <- parseLoop inh []
@@ -33,7 +34,10 @@ tagger = do
    let wordTagProbs = build_probs wtCounts tagCounts
    save  "wtProbs.txt" $ showWordTags  wordTagProbs
    putStrLn "==== Viterbi Init ===="
-
+   let input = words $ "My name is John <end>"
+   let (scores,back) = viterbi input bigramProbs wordTagProbs
+   save  "scores1.txt" $ showWordTags scores
+   save  "back1.txt" $ showWordTags back
    return ()
 
 parse :: [String] -> IO (String)

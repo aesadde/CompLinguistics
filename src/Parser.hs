@@ -1,13 +1,10 @@
-module Parser(parseLoop,tagTagCounts,wordTagCounts,showWordTags,tcounts,save,showTags,all_bigrams,build_probs) where
+module Parser(parseLoop,tagTagCounts,wordTagCounts,showWordTags,tcounts,save,showTags,all_bigrams,build_probs,tag_set) where
 
 import System.IO
 import Data.Map(Map)
 import qualified Data.Map as M
 import Data.List(foldl')
 import Data.List.Split(splitOn)
-
-mapFold :: Foldable t => t a -> (M.Map k a1 -> a -> M.Map k a1) -> M.Map k a1
-mapFold ls f = foldl' f M.empty ls
 
 tag_set :: [String]
 tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
