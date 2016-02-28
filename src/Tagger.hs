@@ -34,7 +34,7 @@ tagger = do
    let wordTagProbs = build_probs wtCounts tagCounts
    save  "wtProbs.txt" $ showWordTags  wordTagProbs
    putStrLn "==== Viterbi Init ===="
-   let input = words  "The dog is on the table ."
+   let input = words  "My name is John ."
    let (scores,back,tagged_stn) = viterbi input bigramProbs wordTagProbs
    save  "scores1.txt" $ showWordTags scores
    save  "back1.txt" $ showWordTags back

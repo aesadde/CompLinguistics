@@ -26,11 +26,11 @@ build_probs bmap tmap = case M.traverseWithKey f bmap of
 --  or P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
 genProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
 genProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
-    Just c -> log (fromIntegral c) - log ct
+    Just c -> fromIntegral c / log ct
     Nothing -> case M.lookup (w1,w2) m1 of
-        Just c -> log (fromIntegral c) - log ct
+        Just c -> fromIntegral c / ct
         Nothing -> 0.0 -- wort|tag not available
-    where ct = fromIntegral $ fromMaybe 0 (M.lookup w2 m2)
+    where ct = fromIntegral $ fromMaybe 1 (M.lookup w2 m2)
 
 -- ================================== COUNT TAGi|TAGi-1 ===============================
 -- This is also known as the tag transition distribution when we multiply over
