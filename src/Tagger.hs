@@ -11,10 +11,10 @@ import Viterbi
 
 tagger :: IO()
 tagger = do
-   -- args <- getArgs >>= parse
+   args <- getArgs >>= parse
    putStrLn "===== Preprocessing Files ====="
    let prepPairs = "preprocess.txt"
-   preprocess "../WSJ-2-12" prepPairs -- works only if file doesn't exist
+   preprocess args prepPairs -- works only if file doesn't exist
    putStrLn "===== Files preprocessed and saved to 'preprocess.txt' ====="
    inh <- openFile prepPairs ReadMode
    pairsList <- parseLoop inh []
