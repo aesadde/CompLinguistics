@@ -1,76 +1,97 @@
-{-# LANGUAGE BangPatterns #-}
-module Parser (getWords) where
+module Parser(parseLoop,tagTagCounts,wordTagCounts,showWordTags,tcounts,save,showTags,all_bigrams,build_probs,tag_set) where
 
-import System.Environment
 import System.IO
-import Types
-import Control.Monad
-import Text.Regex.Posix
-import qualified Data.ByteString.Lazy as B
-import qualified Data.ByteString.Lazy.Char8 as BC
-import qualified Data.Map.Strict as M
+import Data.Map(Map)
+import qualified Data.Map as M
+import Data.List.Split(splitOn)
+import Data.Maybe(fromMaybe)
+
+tag_set :: [String]
+tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
+
+all_bigrams :: Map (String,String) Int
+all_bigrams = M.fromList [((x,y),z)| x <- tag_set, y <-tag_set, z <- [1]]
+
+build_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
+build_probs bmap tmap = case M.traverseWithKey f bmap of
+    Just m -> m
+    Nothing -> error "Cannot build bigrams map"
+    where f wt _ = Just $ genProb wt bmap tmap
 
 -- ================================================================================
--- ================================== PARSER -- ===================================
--- ================================================================================
---
--- | 'removeLines' removes specific unwanted lines
--- removeLines :: Sentences -> Sentences
--- removeLines = BC.filter (\x -> x /= '' && x /= "======================================")
-
--- | 'parseSentences' reads the given filepath and returns the relevant sentences
-parseSentences :: FilePath -> IO Sentences
-parseSentences fpath = B.readFile fpath >>= \x -> return $ (BC.lines x)
-
--- | The 'parseFiles' function parses all the files in the WSJ directory
-parseFiles :: IO Sentences
-parseFiles = (liftM concat) $ mapM parseSentences ["../WSJ-2-12/"++ n ++"/WSJ_"++ n ++ m ++ ".POS"  | n <- nn, m <- mm ]
-    where nn = (map (\x -> "0" ++ show x) [2..9])
-          mm = (map (\x -> "0" ++ show x) [0..9]) ++ map show [10..99]
-
--- | 'matchPairs' only matches WORD/TAG pairs using a regex
-matchPairs :: Sentence -> Words
-matchPairs stn = concat (match pat stn :: [[B.ByteString]])
-    where pat = makeRegex "[a-zA-Z0-9_.,'&`!?:-]+/[-:!?`&'a-zA-Z0-9_.,]+" :: Regex
-
--- | 'getPairs' takes a list of sentences and a list of words and returns all
--- pairs word/tag pairs in the sentences
-getPairs :: Sentences -> Words -> Words
-getPairs [] ws = ws
-getPairs (st:stns) ws = let mt = matchPairs st in
-                            if mt == [BC.empty] then getPairs stns ws
-                            else getPairs stns (ws ++ mt)
-
--- | 'getWords' simply parses all the fails and gets all the word/tag pairs
-getWords :: IO Sentence
-getWords = (parseFiles >>= (\snts -> return (BC.unlines $ getPairs snts [])))
-
-
--- TODO: Build maps with probabilities
--- ================================================================================
--- ================================== PROBABILITIES ===============================
+-- ================================== COUNTS ===============================
 -- ================================================================================
 
+-- | 'genProb' computes P(w|t) = Count(w|tag) / Count(tag)
+--  or P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
+genProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
+genProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
+    Just c -> log (fromIntegral c) - log ct
+    Nothing -> case M.lookup (w1,w2) m1 of
+        Just c -> log (fromIntegral c) - log ct
+        Nothing -> 0.0 -- wort|tag not available
+    where ct = fromIntegral $ fromMaybe 0 (M.lookup w2 m2)
 
+-- ================================== COUNT TAGi|TAGi-1 ===============================
+-- This is also known as the tag transition distribution when we multiply over
+-- all possible tags.
 
-mapFold ls f = foldl f M.empty ls
+-- | 'tagTagCounts' builds the map (tn,tn+1) -> int
+tagTagCounts :: [(String,String)] -> Map (String,String) Int -> Map (String,String) Int
+tagTagCounts [_] m = m
+tagTagCounts (wt:wts) m = tagTagCounts wts (M.insertWith (+) tt 1 m)
+                                  where tt = (snd wt, snd $ head wts)
 
--- | 'tagCounts' matches all tags and builds a map with the counts for the tags
-tagCounts :: Sentence -> M.Map B.ByteString Int
-tagCounts stn = mapFold (concat (match pat stn :: [[B.ByteString]])) add
-        where   pat = makeRegex "/[-:!?`&'a-zA-Z0-9_.,]+" :: Regex
-                add :: M.Map B.ByteString Int -> B.ByteString -> M.Map B.ByteString Int
-                add m key = M.insertWith (+) key 1 m
+-- ================================== COUNT WORD|TAG ===============================
+-- Word emission distribution when we multiply over all possible pairings
 
--- prettyPrintTagCounts :: M.Map B.ByteString Int -> IO ()
--- prettyPrintTagCounts  m = do
---         putStrLn "========== Tag Counts =========="
---         putStrLn $ head [tag ++ " --> " ++ count | (tag,count) <- (M.fromList m)]
+wordTagCounts :: [(String,String)] -> Map (String, String) Int
+wordTagCounts = foldl (\ m wt -> M.insertWith (+) wt 1 m) M.empty
 
+showWordTags :: Show a => Map (String, String) a -> [String]
+showWordTags m = map prettyWTags $ M.toList m
+    where
+          prettyWTags :: Show a => ((String, String),a) -> String
+          prettyWTags ((w,t),v) = w ++ "|" ++ t ++ "--> " ++ show v
 
+-- ================================== COUNT TAGS ===============================
+-- | 'tcounts' generates a Map Tag -> Count from the list of word/tag pairs
+tcounts :: [(String,String)] -> Map String Int -> Map String Int
+tcounts [] m = m
+tcounts ((_,key):sts) m = tcounts sts (M.insertWith (+) key 1 m)
 
-main = do
-    sentence <- getWords
-    -- BC.putStrLn sentence
-    tags <- return $ tagCounts sentence
-    putStrLn $ show tags
+-- | 'showTags' pretty prints the tag counts map
+showTags :: Map String Int -> [String]
+showTags m = map prettyTags $ M.toList m
+    where
+          prettyTags :: (String,Int) -> String
+          prettyTags (k,v) = k ++ "--> " ++ show v
+-- ================================================================================
+
+-- ================================== PARSING ===============================
+-- | 'parseLoop' generates a list of word/tag pairs from a file
+parseLoop:: Handle -> [(String, String)] -> IO [(String,String)]
+parseLoop inh lst =
+    do ineof <- hIsEOF inh
+       if ineof
+        then return (reverse lst)
+        else do inpStr <- hGetLine inh
+                let lst' = parsePair inpStr ++ lst
+                parseLoop inh lst'
+
+-- | 'parsePair' take a pair from the file and puts it in the correct format (w,tag)
+parsePair :: String -> [(String,String)]
+parsePair st = if '|' `elem` l
+    then let tags = splitOn "|" l in (h,head tags) : [(h,last tags)]
+    else [(h,l)]
+        where sp = splitOn "<>" st
+              h = head sp
+              l = last sp
+
+-- | 'save' saves a list of string to a file
+save :: FilePath -> [String] -> IO()
+save fpath m = do
+    outh <- openFile fpath WriteMode
+    mapM_ (hPutStrLn outh) m
+    hClose outh
+-- ================================================================================
