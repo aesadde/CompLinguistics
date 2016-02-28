@@ -3,8 +3,8 @@ module Parser(parseLoop,tagTagCounts,wordTagCounts,showWordTags,tcounts,save,sho
 import System.IO
 import Data.Map(Map)
 import qualified Data.Map as M
-import Data.List(foldl')
 import Data.List.Split(splitOn)
+import Data.Maybe(fromMaybe)
 
 tag_set :: [String]
 tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
@@ -26,36 +26,33 @@ build_probs bmap tmap = case M.traverseWithKey f bmap of
 --  or P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
 genProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
 genProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
-    Just c -> (log $ fromIntegral c) - log ct
+    Just c -> log (fromIntegral c) - log ct
     Nothing -> case M.lookup (w1,w2) m1 of
-        Just c -> (log $ fromIntegral c) - log ct
-    -- Nothing -> error "Couldn't generate probability"
-        Nothing -> 0.0
-    where ct = fromIntegral $ case M.lookup w2 m2 of Just t' -> t'
+        Just c -> log (fromIntegral c) - log ct
+        Nothing -> 0.0 -- wort|tag not available
+    where ct = fromIntegral $ fromMaybe 0 (M.lookup w2 m2)
 
 -- ================================== COUNT TAGi|TAGi-1 ===============================
--- TODO: function for P(tn = j | tn-1 = i ) = Count(t = i, t = j) / Count(t = i)
 -- This is also known as the tag transition distribution when we multiply over
 -- all possible tags.
 
 -- | 'tagTagCounts' builds the map (tn,tn+1) -> int
 tagTagCounts :: [(String,String)] -> Map (String,String) Int -> Map (String,String) Int
-tagTagCounts [x] m = m
+tagTagCounts [_] m = m
 tagTagCounts (wt:wts) m = tagTagCounts wts (M.insertWith (+) tt 1 m)
                                   where tt = (snd wt, snd $ head wts)
 
 -- ================================== COUNT WORD|TAG ===============================
 -- Word emission distribution when we multiply over all possible pairings
 
-wordTagCounts :: [(String,String)] -> Map (String, String) Int -> Map (String, String) Int
-wordTagCounts [] m = m
-wordTagCounts (wt:wts) m = wordTagCounts wts (M.insertWith (+) wt 1 m)
+wordTagCounts :: [(String,String)] -> Map (String, String) Int
+wordTagCounts = foldl (\ m wt -> M.insertWith (+) wt 1 m) M.empty
 
 showWordTags :: Show a => Map (String, String) a -> [String]
 showWordTags m = map prettyWTags $ M.toList m
     where
           prettyWTags :: Show a => ((String, String),a) -> String
-          prettyWTags ((w,t),v) = w ++ "|" ++ t ++ "--> " ++ (show v)
+          prettyWTags ((w,t),v) = w ++ "|" ++ t ++ "--> " ++ show v
 
 -- ================================== COUNT TAGS ===============================
 -- | 'tcounts' generates a Map Tag -> Count from the list of word/tag pairs
@@ -68,24 +65,24 @@ showTags :: Map String Int -> [String]
 showTags m = map prettyTags $ M.toList m
     where
           prettyTags :: (String,Int) -> String
-          prettyTags (k,v) = k ++ "--> " ++ (show v)
+          prettyTags (k,v) = k ++ "--> " ++ show v
 -- ================================================================================
 
 -- ================================== PARSING ===============================
 -- | 'parseLoop' generates a list of word/tag pairs from a file
-parseLoop:: Handle -> [(String, String)] -> IO([(String,String)])
+parseLoop:: Handle -> [(String, String)] -> IO [(String,String)]
 parseLoop inh lst =
     do ineof <- hIsEOF inh
        if ineof
         then return (reverse lst)
         else do inpStr <- hGetLine inh
-                let lst' = (parsePair inpStr) ++ lst
+                let lst' = parsePair inpStr ++ lst
                 parseLoop inh lst'
 
 -- | 'parsePair' take a pair from the file and puts it in the correct format (w,tag)
 parsePair :: String -> [(String,String)]
-parsePair st = if elem '|' l
-    then let tags = splitOn "|" l in [(h,head tags)] ++ [(h,last tags)]
+parsePair st = if '|' `elem` l
+    then let tags = splitOn "|" l in (h,head tags) : [(h,last tags)]
     else [(h,l)]
         where sp = splitOn "<>" st
               h = head sp
@@ -95,6 +92,6 @@ parsePair st = if elem '|' l
 save :: FilePath -> [String] -> IO()
 save fpath m = do
     outh <- openFile fpath WriteMode
-    mapM (\x -> hPutStrLn outh x) m
+    mapM_ (hPutStrLn outh) m
     hClose outh
 -- ================================================================================

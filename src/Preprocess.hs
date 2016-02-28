@@ -35,7 +35,7 @@ mainloop inh outh =
        if ineof
            then return ()
            else do inpStr <- hGetLine inh
-                   mapM (\x -> hPutStrLn outh (fst x ++ "<>" ++ snd x)) (matchPairs inpStr)
+                   mapM_ (\x -> hPutStrLn outh (fst x ++ "<>" ++ snd x)) (matchPairs inpStr)
                    mainloop inh outh
 
 -- | 'getRecursiveContents' gets all the files recursively starting from the

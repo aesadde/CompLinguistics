@@ -22,7 +22,7 @@ tagger = do
    let tagCounts = tcounts pairsList M.empty
    -- save "tagCounts.txt" $ showTags tagCounts
    putStrLn "===== Tag Counts generated and saved to 'tagCounts.txt' ====="
-   let wtCounts = wordTagCounts pairsList M.empty
+   let wtCounts = wordTagCounts pairsList
    -- save  "wordTagCounts.txt" $ showWordTags wtCounts
    putStrLn "===== Word/Tag Counts generated and saved to 'wordTagCounts.txt' ====="
    -- Easy way to use add-1 smoothing -> use a table with all possible tag pairs
@@ -34,13 +34,14 @@ tagger = do
    let wordTagProbs = build_probs wtCounts tagCounts
    save  "wtProbs.txt" $ showWordTags  wordTagProbs
    putStrLn "==== Viterbi Init ===="
-   let input = words $ "My name is John <end>"
-   let (scores,back) = viterbi input bigramProbs wordTagProbs
+   let input = words  "The dog is on the table ."
+   let (scores,back,tagged_stn) = viterbi input bigramProbs wordTagProbs
    save  "scores1.txt" $ showWordTags scores
    save  "back1.txt" $ showWordTags back
+   print tagged_stn
    return ()
 
-parse :: [String] -> IO (String)
+parse :: [String] -> IO String
 parse ["-h"] = usage   >> exit
 parse ["-v"] = version >> exit
 parse [x]    = doesDirectoryExist x >>= \t -> if t then return x else parse []
