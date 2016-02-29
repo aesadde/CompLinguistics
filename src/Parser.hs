@@ -1,4 +1,4 @@
-module Parser(parseLoop,tagTagCounts,wordTagCounts,showWordTags,tcounts,save,showTags,all_bigrams,build_probs,tag_set) where
+module Parser(parse,showWordTags,tcounts,save,showTags,all_bigrams,build_probs,tag_set) where
 
 import System.IO
 import Data.Map(Map)
@@ -38,6 +38,7 @@ genProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
 
 -- | 'tagTagCounts' builds the map (tn,tn+1) -> int
 tagTagCounts :: [(String,String)] -> Map (String,String) Int -> Map (String,String) Int
+tagTagCounts []  _ = error "Not enough tags to count"
 tagTagCounts [_] m = m
 tagTagCounts (wt:wts) m = tagTagCounts wts (M.insertWith (+) tt 1 m)
                                   where tt = (snd wt, snd $ head wts)
@@ -66,7 +67,6 @@ showTags m = map prettyTags $ M.toList m
     where
           prettyTags :: (String,Int) -> String
           prettyTags (k,v) = k ++ "--> " ++ show v
--- ================================================================================
 
 -- ================================== PARSING ===============================
 -- | 'parseLoop' generates a list of word/tag pairs from a file
@@ -95,3 +95,20 @@ save fpath m = do
     mapM_ (hPutStrLn outh) m
     hClose outh
 -- ================================================================================
+
+parse :: FilePath -> IO (Map (String,String) Float, Map (String,String) Float)
+parse fpath = do
+   inh <- openFile fpath ReadMode
+   pairsList <- parseLoop inh []
+   hClose inh
+   -- Counts
+   let tagCounts = tcounts pairsList M.empty
+   let wtCounts = wordTagCounts pairsList
+   let ttCounts = tagTagCounts pairsList all_bigrams
+
+   -- Probabilities
+   let bigramProbs = build_probs ttCounts tagCounts
+   let wordTagProbs = build_probs wtCounts tagCounts
+   save  "bigrams.txt" $ showWordTags bigramProbs
+   save  "wtProbs.txt" $ showWordTags  wordTagProbs
+   return (bigramProbs,wordTagProbs)

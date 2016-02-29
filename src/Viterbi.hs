@@ -1,4 +1,4 @@
-module Viterbi(viterbi,maxScore,getProb,initScore) where
+module Viterbi(viterbi) where
 import Data.Map(Map)
 import qualified Data.Map as M
 import Data.List(foldl')
@@ -11,9 +11,7 @@ mapFold :: Foldable t => t a -> (M.Map k a1 -> a -> M.Map k a1) -> M.Map k a1 ->
 mapFold ls f m = foldl' f m ls
 
 getProb :: Show k => Ord k => k -> Map k Float -> Float
-getProb k m = case M.lookup k m of
-    Just x -> x
-    Nothing -> 0.0
+getProb k m = fromMaybe 0.0 (M.lookup k m)
 
 start :: String
 start = "."

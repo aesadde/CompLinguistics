@@ -11,28 +11,11 @@ import Viterbi
 
 tagger :: IO()
 tagger = do
-   args <- getArgs >>= parse
+   args <- getArgs >>= parseArgs
    putStrLn "===== Preprocessing Files ====="
    let prepPairs = "preprocess.txt"
    preprocess args prepPairs -- works only if file doesn't exist
-   putStrLn "===== Files preprocessed and saved to 'preprocess.txt' ====="
-   inh <- openFile prepPairs ReadMode
-   pairsList <- parseLoop inh []
-   putStrLn "===== Starting Counts ====="
-   let tagCounts = tcounts pairsList M.empty
-   -- save "tagCounts.txt" $ showTags tagCounts
-   putStrLn "===== Tag Counts generated and saved to 'tagCounts.txt' ====="
-   let wtCounts = wordTagCounts pairsList
-   -- save  "wordTagCounts.txt" $ showWordTags wtCounts
-   putStrLn "===== Word/Tag Counts generated and saved to 'wordTagCounts.txt' ====="
-   -- Easy way to use add-1 smoothing -> use a table with all possible tag pairs
-   -- init to 1
-   let ttCounts = tagTagCounts pairsList all_bigrams
-   -- save  "tagTagCounts.txt" $ showWordTags ttCounts
-   let bigramProbs = build_probs ttCounts tagCounts
-   save  "bigrams.txt" $ showWordTags bigramProbs
-   let wordTagProbs = build_probs wtCounts tagCounts
-   save  "wtProbs.txt" $ showWordTags  wordTagProbs
+   (bigramProbs, wordTagProbs) <- Parser.parse prepPairs
    putStrLn "==== Viterbi Init ===="
    let input = words  "My name is John ."
    let (scores,back,tagged_stn) = viterbi input bigramProbs wordTagProbs
@@ -41,11 +24,11 @@ tagger = do
    print tagged_stn
    return ()
 
-parse :: [String] -> IO String
-parse ["-h"] = usage   >> exit
-parse ["-v"] = version >> exit
-parse [x]    = doesDirectoryExist x >>= \t -> if t then return x else parse []
-parse []     = parse["-h"]
+parseArgs :: [String] -> IO String
+parseArgs ["-h"] = usage   >> exit
+parseArgs ["-v"] = version >> exit
+parseArgs [x]    = doesDirectoryExist x >>= \t -> if t then return x else parseArgs []
+parseArgs []     = parseArgs["-h"]
 
 usage   = putStrLn "Usage: tac [-vh] [folder..]"
 version = putStrLn "Compling Tagger 0.0.0.1"
