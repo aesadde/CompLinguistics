@@ -1,4 +1,4 @@
-module Parser(parse,showWordTags,tcounts,save,showTags,all_bigrams,build_probs,tag_set) where
+module Parser(parse,showWordTags,tcounts,save,showTags,all_bigrams,tag_set) where
 
 import System.IO
 import Data.Map(Map)
@@ -7,30 +7,38 @@ import Data.List.Split(splitOn)
 import Data.Maybe(fromMaybe)
 
 tag_set :: [String]
-tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
+tag_set = ["<start>","#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
 
+-- | 'all_bigrams' initialises the list of all t|t pairs to 1  (add-1 smoothing by default)
 all_bigrams :: Map (String,String) Int
 all_bigrams = M.fromList [((x,y),z)| x <- tag_set, y <-tag_set, z <- [1]]
 
-build_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
-build_probs bmap tmap = case M.traverseWithKey f bmap of
-    Just m -> m
-    Nothing -> error "Cannot build bigrams map"
-    where f wt _ = Just $ genProb wt bmap tmap
+build_bigram_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
+build_bigram_probs bmap tmap = fromMaybe  (error "Cannot build bigrams map") (M.traverseWithKey f bmap)
+    where f wt _ = Just $ genBigProb wt bmap tmap
+
+
+build_wt_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
+build_wt_probs bmap tmap = fromMaybe  (error "Cannot build wt map") (M.traverseWithKey f bmap)
+    where f wt _ = Just $ genWTProb wt bmap tmap
 
 -- ================================================================================
 -- ================================== COUNTS ===============================
 -- ================================================================================
 
 -- | 'genProb' computes P(w|t) = Count(w|tag) / Count(tag)
---  or P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
-genProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
-genProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
-    Just c -> fromIntegral c / log ct
-    Nothing -> case M.lookup (w1,w2) m1 of
-        Just c -> fromIntegral c / ct
-        Nothing -> 0.0 -- wort|tag not available
-    where ct = fromIntegral $ fromMaybe 1 (M.lookup w2 m2)
+--  P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
+genBigProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
+genBigProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
+    Just c -> fromIntegral c / ct
+    Nothing -> error "This should not happen since all bigrams have at least count 1"
+    where ct = fromIntegral $ fromMaybe 0 (M.lookup w2 m2)
+
+genWTProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
+genWTProb (w,t) wtmap tmap = case M.lookup (w,t) wtmap of
+    Just c -> fromIntegral c / ct
+    Nothing -> 0.0
+    where ct = fromIntegral $ fromMaybe 0 (M.lookup t tmap)
 
 -- ================================== COUNT TAGi|TAGi-1 ===============================
 -- This is also known as the tag transition distribution when we multiply over
@@ -41,7 +49,7 @@ tagTagCounts :: [(String,String)] -> Map (String,String) Int -> Map (String,Stri
 tagTagCounts []  _ = error "Not enough tags to count"
 tagTagCounts [_] m = m
 tagTagCounts (wt:wts) m = tagTagCounts wts (M.insertWith (+) tt 1 m)
-                                  where tt = (snd wt, snd $ head wts)
+    where tt = (snd wt, snd $ head wts)
 
 -- ================================== COUNT WORD|TAG ===============================
 -- Word emission distribution when we multiply over all possible pairings
@@ -80,10 +88,12 @@ parseLoop inh lst =
                 parseLoop inh lst'
 
 -- | 'parsePair' take a pair from the file and puts it in the correct format (w,tag)
+--  this handles the cases where a word has more than one tag w/T1|T2
 parsePair :: String -> [(String,String)]
-parsePair st = if '|' `elem` l
-    then let tags = splitOn "|" l in (h,head tags) : [(h,last tags)]
-    else [(h,l)]
+parsePair st
+    | '|' `elem` l          = let tags = splitOn "|" l in (h,head tags) : [(h,last tags)]
+    | h == "." && l == "."  = ("<start>","<start>") : [(h,l)]
+    | otherwise             = [(h,l)]
         where sp = splitOn "<>" st
               h = head sp
               l = last sp
@@ -102,13 +112,16 @@ parse fpath = do
    pairsList <- parseLoop inh []
    hClose inh
    -- Counts
-   let tagCounts = tcounts pairsList M.empty
-   let wtCounts = wordTagCounts pairsList
-   let ttCounts = tagTagCounts pairsList all_bigrams
+   let tagCounts = tcounts pairsList M.empty -- generate the tag counts
+   save  "tagC.txt" $ showTags tagCounts
+   let wtCounts = wordTagCounts pairsList  -- generate the (w,t) counts
+   save  "wtC.txt" $ showWordTags wtCounts
+   let ttCounts = tagTagCounts pairsList all_bigrams -- generate the (t,t) counts with add-1 smoothing
+   save  "ttC.txt" $ showWordTags ttCounts
 
    -- Probabilities
-   let bigramProbs = build_probs ttCounts tagCounts
-   let wordTagProbs = build_probs wtCounts tagCounts
+   let bigramProbs = build_bigram_probs ttCounts tagCounts
+   let wordTagProbs = build_wt_probs wtCounts tagCounts
    save  "bigrams.txt" $ showWordTags bigramProbs
    save  "wtProbs.txt" $ showWordTags  wordTagProbs
    return (bigramProbs,wordTagProbs)

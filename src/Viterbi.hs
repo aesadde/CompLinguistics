@@ -68,12 +68,13 @@ traceBack' (s:st) (t,w) backp result = traceBack' st (tag,s) backp [(s,tag)] ++ 
 -- This is the same as Score(i,j) = max_1^k (Score(k,j-1) * P(ti,tk) * P(wj|ti))
 -- | 'maxScore' returns the biggest score for the current word and tag
 maxScore :: String -> String -> Scores -> BiProbMap -> WTProbMap -> String -> (String, Float)
-maxScore prev_w curr scores bmap wtmap tag = max' (map mult [(ts,prev_w) | ts <- tag_set]) (".",0.0) --map over all tags
+maxScore prev_w curr scores bmap wtmap tag = max' maxScores (head maxScores)
         where mult s@(t,_) = (t,curr_score s * bi_prob t * wt_prob)
               curr_score s = getProb s scores         -- get score of (tag,prev_w)
               bi_prob t    = getProb (tag,t) bmap     -- get the (t,t-1) probability
-              wt_prob      = getProb (curr,tag) wtmap -- get the (w,t) probability
-
+              wt_prob      = fromMaybe 1.0 (M.lookup (curr,tag) wtmap) -- get the (w,t) probability
+              -- wt_prob      = getProb (curr,tag) wtmap -- get the (w,t) probability
+              maxScores    = map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
 -- | 'max'' gets the max of a list of pairs comparing only on the snd member
 max' :: Ord a => [(String,a)] ->  (String,a) -> (String,a)
 max' [] ma              = ma

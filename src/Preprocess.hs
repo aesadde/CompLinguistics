@@ -1,4 +1,4 @@
-module Preprocess (preprocess) where
+module Preprocess where
 
 import System.Directory
 import System.FilePath ((</>))
@@ -21,7 +21,7 @@ preprocessLoop [] _ = return ()
 preprocessLoop (x:xs) outF = do
     inh <- openFile x ReadMode
     outh <- openFile outF AppendMode
-    hPutStrLn outh ("." ++ "<>" ++ ".")
+    hPutStrLn outh ("<start>" ++ "<>" ++ "<start>")
     mainloop inh outh
     hClose inh
     hClose outh
@@ -57,4 +57,3 @@ matchPairs :: String -> [(String,String)]
 matchPairs stn = map pair (match pat stn :: [[String]])
     where pat = makeRegex "([[:graph:]]+)/([[:graph:]]+)" :: Regex
           pair ls = (head $ tail ls, last ls)
-
