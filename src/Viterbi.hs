@@ -65,26 +65,26 @@ traceBack' (s:st) (t,w) backp result = traceBack' st (tag,s) backp [(s,tag)] ++ 
 -- | 'maxScore' returns the biggest score for the current word and tag
 maxScore :: String -> String -> Scores -> BiProbMap -> WTProbMap -> String -> (String, Float)
 maxScore prev_w curr scores bmap wtmap tag = max' maxScores (head maxScores)
-        where mult s@(t,_) = (t,curr_score s * bi_prob t * wt_prob)
+        where mult s@(t,_) = (t,curr_score s * bi_prob t)
               curr_score s = getProb s scores         -- get score of (tag,prev_w)
               bi_prob t    = getProb (tag,t) bmap     -- get the (t,t-1) probability
-              wt_prob      = getProb (curr,tag) wtmap -- get the (w,t) probability
-              maxScores    = map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
-              -- maxScores    = zipWith (\sc (t,s) -> (t,sc*s)) (handle_unknown curr wtmap) $ map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
+              -- wt_prob      = getProb (curr,tag) wtmap -- get the (w,t) probability
+              -- maxScores    = map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
+              maxScores    = zipWith (\sc (t,s) -> (t,sc*s)) (handle_unknown curr wtmap tag) $ map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
               -- wt_prob      = fromMaybe 1.0 (M.lookup (curr,tag) wtmap)
 
--- handle_unknown :: String -> WTProbMap -> [Float]
--- handle_unknown curr wtmap
---         | l == 0 = replicate (length tag_set) 1.0
---         | otherwise = uk
---         where (l,uk) = handle_unknown' curr wtmap tag_set (0,[])
+handle_unknown :: String -> WTProbMap -> String -> [Float]
+handle_unknown curr wtmap tag = case M.lookup (curr,tag) wtmap of
+     Just x -> replicate (length tag_set) x
+     Nothing -> if l == 0 then replicate (length tag_set) 1.0 else uk
+        where (l,uk) = handle_unknown' curr wtmap tag_set (0,[])
 
 
--- handle_unknown' :: String -> WTProbMap -> [String] -> (Int,[Float]) -> (Int,[Float])
--- handle_unknown'  _    _     []       res = res
--- handle_unknown' curr wtmap (t:tagS) (l,res) = case M.lookup (curr,t) wtmap  of
---         Just x -> handle_unknown' curr wtmap tagS (l + 1, x : res)
---         Nothing -> handle_unknown' curr wtmap tagS (l, 0.0 : res)
+handle_unknown' :: String -> WTProbMap -> [String] -> (Int,[Float]) -> (Int,[Float])
+handle_unknown'  _    _     []       res = res
+handle_unknown' curr wtmap (t:tagS) (l,res) = case M.lookup (curr,t) wtmap  of
+        Just x -> handle_unknown' curr wtmap tagS (l + 1, x : res)
+        Nothing -> handle_unknown' curr wtmap tagS (l, 0.0 : res)
 
 -- | 'max'' gets the max of a list of pairs comparing only on the snd member
 max' :: Ord a => [(String,a)] ->  (String,a) -> (String,a)

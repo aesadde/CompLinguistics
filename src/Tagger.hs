@@ -17,14 +17,14 @@ main = do
    preprocess args prepPairs -- works only if file doesn't exist
    (bigramProbs, wordTagProbs) <- Parser.parse prepPairs
    putStrLn "==== Viterbi Init ===="
-   -- let input = words  "I am on a stairway to heaven or a highway to hell ."
+   let input2 = words  "I am on a stairway to heaven or a highway to hell ."
    let input = words  "My name is John ."
    let (scores,back,tagged_stn) = viterbi input bigramProbs wordTagProbs
-   -- let (_,_,t_stn) = viterbi input2 bigramProbs wordTagProbs
+   let (_,_,t_stn) = viterbi input2 bigramProbs wordTagProbs
    save  "scores1.txt" $ showbig scores
    save  "back1.txt" $ showWordTags back
    print tagged_stn
-   -- print t_stn
+   print t_stn
    return ()
 
 parseArgs :: [String] -> IO String
