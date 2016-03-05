@@ -21,7 +21,7 @@ main = do
    let input = words  "My name is John ."
    let (scores,back,tagged_stn) = viterbi input bigramProbs wordTagProbs
    -- let (_,_,t_stn) = viterbi input2 bigramProbs wordTagProbs
-   save  "scores1.txt" $ showWordTags scores
+   save  "scores1.txt" $ showbig scores
    save  "back1.txt" $ showWordTags back
    print tagged_stn
    -- print t_stn

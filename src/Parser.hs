@@ -1,10 +1,11 @@
-module Parser(parse,showWordTags,tcounts,save,showTags,all_bigrams,tag_set) where
+module Parser(parse,showbig,showWordTags,tcounts,save,showTags,all_bigrams,tag_set) where
 
 import System.IO
 import Data.Map(Map)
 import qualified Data.Map as M
 import Data.List.Split(splitOn)
 import Data.Maybe(fromMaybe)
+import Text.Printf(printf)
 
 tag_set :: [String]
 tag_set = ["<start>","#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
@@ -37,7 +38,7 @@ genBigProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
 genWTProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
 genWTProb (w,t) wtmap tmap = case M.lookup (w,t) wtmap of
     Just c -> fromIntegral c / ct
-    Nothing -> 0.0
+    Nothing -> error "W/T"
     where ct = fromIntegral $ fromMaybe 0 (M.lookup t tmap)
 
 -- ================================== COUNT TAGi|TAGi-1 ===============================
@@ -62,6 +63,12 @@ showWordTags m = map prettyWTags $ M.toList m
     where
           prettyWTags :: Show a => ((String, String),a) -> String
           prettyWTags ((w,t),v) = w ++ "|" ++ t ++ "--> " ++ show v
+
+showbig :: Map (String, String) Float -> [String]
+showbig m = map prettyWTags $ M.toList m
+    where
+          prettyWTags :: ((String, String),Float) -> String
+          prettyWTags ((w,t),v) = w ++ "|" ++ t ++ " --> " ++ printf "%.8f" v
 
 -- ================================== COUNT TAGS ===============================
 -- | 'tcounts' generates a Map Tag -> Count from the list of word/tag pairs
@@ -122,6 +129,6 @@ parse fpath = do
    -- Probabilities
    let bigramProbs = build_bigram_probs ttCounts tagCounts
    let wordTagProbs = build_wt_probs wtCounts tagCounts
-   save  "bigrams.txt" $ showWordTags bigramProbs
-   save  "wtProbs.txt" $ showWordTags  wordTagProbs
+   save  "bigrams.txt" $ showbig bigramProbs
+   save  "wtProbs.txt" $ showbig wordTagProbs
    return (bigramProbs,wordTagProbs)
