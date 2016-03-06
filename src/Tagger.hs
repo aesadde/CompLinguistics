@@ -13,7 +13,9 @@ interactive_tagger = forever $ do
    let prepPairs = "preprocess.txt"
    preprocess ["WSJ-2-12"] prepPairs -- works only if file doesn't exist
    (bigramProbs, wordTagProbs) <- Parser.parse prepPairs
-   let tagged_stn = viterbi (words input) bigramProbs wordTagProbs
+   let (s,b,tagged_stn) = viterbi (words input) bigramProbs wordTagProbs
+   save "scores.txt" $ showPairCounts s
+   save "back.txt" $ showPairCounts b
    print tagged_stn
    return ()
 

@@ -19,15 +19,22 @@ start = "."
 -- | 'initScore' initialises the scores map by computing the scores of the first word for all the available tags
 --  so this computes the first column of Score
 initScore :: String -> BiProbMap -> WTProbMap-> Map (String,String) Float
-initScore w bmap wtmap = mapFold [(x,w) | x <- tag_set] build_p M.empty
-    where build_p m p        = M.insert p (prob p) m
-          prob (t,w1) = getProb (w1,t) wtmap * getProb (t,start) bmap
+initScore w bmap wtmap = mapFold with_wt build_score M.empty
+    where build_score m (pwt,p)        = M.insert p (pwt * prob p) m
+          prob (t,_) = getProb (t,start) bmap
+          with_wt = zip uk [(tag,w) | tag <- tag_set]
+          uk = handle_init w wtmap
+
+-- | 'handle_init' a simplified version of handle_unknown for the special case of the initial scores
+handle_init :: String -> WTProbMap -> [Float]
+handle_init curr wtmap =  if l == 0 then replicate (length tag_set) 1.0 else uk
+        where (l,uk) = handle_unknown' curr wtmap tag_set (0,[])
 
 -- | 'viterbi' the main function of the algorithm
-viterbi :: Sentence -> BiProbMap -> WTProbMap -> [(String,String)]
+viterbi :: Sentence -> BiProbMap -> WTProbMap -> (Scores,BackTrack,[(String,String)])
 viterbi [_] _ _        = error "Not enough words to run the algorithm"
-viterbi stn bmap wtmap = traceBack stn' sb
-    where sb    = viterbi' stn initS bmap wtmap M.empty
+viterbi stn bmap wtmap = (s,b,traceBack stn' sb)
+    where sb@(s,b)    = viterbi' stn initS bmap wtmap M.empty
           initS = initScore (head stn) bmap wtmap
           stn'  = reverse stn
 
@@ -68,17 +75,17 @@ maxScore prev_w curr scores bmap wtmap tag = max' maxScores (head maxScores)
         where mult s@(t,_) = (t,curr_score s * bi_prob t)
               curr_score s = getProb s scores         -- get score of (tag,prev_w)
               bi_prob t    = getProb (tag,t) bmap     -- get the (t,t-1) probability
-              -- wt_prob      = getProb (curr,tag) wtmap -- get the (w,t) probability
-              -- maxScores    = map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
               maxScores    = zipWith (\sc (t,s) -> (t,sc*s)) (handle_unknown curr wtmap tag) $ map mult [(ts,prev_w) | ts <- tag_set] --map over all tags
-              -- wt_prob      = fromMaybe 1.0 (M.lookup (curr,tag) wtmap)
 
+
+-- | 'handle_unknown' returns a list of p(w,t) is the current (w,t) pair exists
+-- otherwise we check to see if the word is unknown. If it is we return a list
+-- of all 1.0's otherwise we return a list of the corresponding probs
 handle_unknown :: String -> WTProbMap -> String -> [Float]
 handle_unknown curr wtmap tag = case M.lookup (curr,tag) wtmap of
      Just x -> replicate (length tag_set) x
      Nothing -> if l == 0 then replicate (length tag_set) 1.0 else uk
         where (l,uk) = handle_unknown' curr wtmap tag_set (0,[])
-
 
 handle_unknown' :: String -> WTProbMap -> [String] -> (Int,[Float]) -> (Int,[Float])
 handle_unknown'  _    _     []       res = res
