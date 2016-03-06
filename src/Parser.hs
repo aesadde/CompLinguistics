@@ -1,4 +1,4 @@
-module Parser(parse,showProbs,showPairCounts,tcounts,save,showTags,all_bigrams,tag_set) where
+module Parser(getSentences,parse,showProbs,showPairCounts,tcounts,save,showTags,all_bigrams,tag_set) where
 
 import System.IO
 import Data.Map(Map)
@@ -108,6 +108,32 @@ save fpath m = do
     outh <- openFile fpath WriteMode
     mapM_ (hPutStrLn outh) m
     hClose outh
+    return ()
+
+getSentences :: FilePath -> IO [String]
+getSentences fpath = do
+    inh <- openFile fpath ReadMode
+    stns <- getSentences' inh []
+    hClose inh
+    return stns
+
+getSentences':: Handle -> [String] -> IO [String]
+getSentences' inh lst =
+    do ineof <- hIsEOF inh
+       if ineof
+        then return lst
+        else do
+            st <- getSentence inh ""
+            getSentences' inh (st : lst)
+
+getSentence :: Handle -> String -> IO String
+getSentence inh st = do
+    inpStr <- hGetLine inh
+    let w = fst $ head (parsePair inpStr)
+    if w == "."
+       then return (st ++ " .")
+       else getSentence inh (st ++ " " ++  w)
+
 -- ================================================================================
 
 parse :: FilePath -> IO (Map (String,String) Float, Map (String,String) Float)

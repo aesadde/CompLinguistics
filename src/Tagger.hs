@@ -1,37 +1,31 @@
-module Tagger where
+module Tagger(tagger) where
 
 import Preprocess(preprocess)
-import System.IO
 import Parser
-import System.Environment
-import System.Exit
-import System.Directory(doesDirectoryExist)
-import qualified Data.Map as M
+import Testing
 import Viterbi
+import Control.Monad(forever)
 
-tagger :: IO()
-tagger = do
-   args <- getArgs >>= parseArgs
-   putStrLn "===== Preprocessing Files ====="
+interactive_tagger :: IO()
+interactive_tagger = forever $ do
+   putStrLn "Input the sentence you wish to tag:"
+   input <- getLine
    let prepPairs = "preprocess.txt"
-   preprocess [args] prepPairs -- works only if file doesn't exist
+   preprocess ["WSJ-2-12"] prepPairs -- works only if file doesn't exist
    (bigramProbs, wordTagProbs) <- Parser.parse prepPairs
-   putStrLn "==== Viterbi Init ===="
-   let input2 = words  "I am on a stairway to heaven or a highway to hell ."
-   let input = words  "My name is John ."
-   let tagged_stn = viterbi input bigramProbs wordTagProbs
-   let t_stn = viterbi input2 bigramProbs wordTagProbs
+   let tagged_stn = viterbi (words input) bigramProbs wordTagProbs
    print tagged_stn
-   print t_stn
    return ()
 
-parseArgs :: [String] -> IO String
-parseArgs ["-h"] = usage   >> exit
-parseArgs ["-v"] = version >> exit
-parseArgs [x]    = doesDirectoryExist x >>= \t -> if t then return x else parseArgs []
-parseArgs []     = parseArgs["-h"]
+test_tagger :: IO ()
+test_tagger = do
+    runTests "WSJ-2-12"
+    print "Testing done"
 
-usage   = putStrLn "Usage: tac [-vh] [folder..]"
-version = putStrLn "Compling Tagger 0.0.0.1"
-exit    = exitWith ExitSuccess
-die     = exitWith (ExitFailure 1)
+tagger :: IO ()
+tagger = forever $ do
+    putStrLn "Press x for interactive or t for testing"
+    args <- getLine
+    if args == "x" then interactive_tagger
+                   else test_tagger
+    return ()
