@@ -14,7 +14,7 @@ getProb :: Show k => Ord k => k -> Map k Float -> Float
 getProb k m = fromMaybe 0.0 (M.lookup k m)
 
 start :: String
-start = "<start>"
+start = "."
 -- ============================== ALGORITHM ==============================
 -- | 'initScore' initialises the scores map by computing the scores of the first word for all the available tags
 --  so this computes the first column of Score
@@ -24,12 +24,12 @@ initScore w bmap wtmap = mapFold [(x,w) | x <- tag_set] build_p M.empty
           prob (t,w1) = getProb (w1,t) wtmap * getProb (t,start) bmap
 
 -- | 'viterbi' the main function of the algorithm
-viterbi :: Sentence -> BiProbMap -> WTProbMap -> (Scores,BackTrack,[(String,String)])
+viterbi :: Sentence -> BiProbMap -> WTProbMap -> [(String,String)]
 viterbi [_] _ _        = error "Not enough words to run the algorithm"
-viterbi stn bmap wtmap = (scores, backp, traceBack stn' sb)
-    where sb@(scores,backp) = viterbi' stn initS bmap wtmap M.empty
-          initS        = initScore (head stn) bmap wtmap
-          stn'         = reverse stn
+viterbi stn bmap wtmap = traceBack stn' sb
+    where sb    = viterbi' stn initS bmap wtmap M.empty
+          initS = initScore (head stn) bmap wtmap
+          stn'  = reverse stn
 
 -- |'viterbi'' this function is the one that attempts to build the scores for every word
 viterbi' :: Sentence -> Scores -> BiProbMap-> WTProbMap -> BackTrack -> (Scores,BackTrack)

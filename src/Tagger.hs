@@ -9,20 +9,18 @@ import System.Directory(doesDirectoryExist)
 import qualified Data.Map as M
 import Viterbi
 
-main :: IO()
-main = do
+tagger :: IO()
+tagger = do
    args <- getArgs >>= parseArgs
    putStrLn "===== Preprocessing Files ====="
    let prepPairs = "preprocess.txt"
-   preprocess args prepPairs -- works only if file doesn't exist
+   preprocess [args] prepPairs -- works only if file doesn't exist
    (bigramProbs, wordTagProbs) <- Parser.parse prepPairs
    putStrLn "==== Viterbi Init ===="
    let input2 = words  "I am on a stairway to heaven or a highway to hell ."
    let input = words  "My name is John ."
-   let (scores,back,tagged_stn) = viterbi input bigramProbs wordTagProbs
-   let (_,_,t_stn) = viterbi input2 bigramProbs wordTagProbs
-   save  "scores1.txt" $ showbig scores
-   save  "back1.txt" $ showWordTags back
+   let tagged_stn = viterbi input bigramProbs wordTagProbs
+   let t_stn = viterbi input2 bigramProbs wordTagProbs
    print tagged_stn
    print t_stn
    return ()

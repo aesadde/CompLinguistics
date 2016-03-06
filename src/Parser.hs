@@ -1,4 +1,4 @@
-module Parser(parse,showbig,showWordTags,tcounts,save,showTags,all_bigrams,tag_set) where
+module Parser(parse,showProbs,showPairCounts,tcounts,save,showTags,all_bigrams,tag_set) where
 
 import System.IO
 import Data.Map(Map)
@@ -8,7 +8,7 @@ import Data.Maybe(fromMaybe)
 import Text.Printf(printf)
 
 tag_set :: [String]
-tag_set = ["<start>","#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
+tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" , "EX" , "FW" , "IN" , "JJ" , "JJR" , "JJS" , "LS" , "MD" , "NN" , "NNP" , "NNPS" , "NNS" , "PDT" , "POS" , "PRP" , "PRP$" , "RB" , "RBR" , "RBS" , "RP" , "SYM" , "TO" , "UH" , "VB" , "VBD" , "VBG" , "VBN" , "VBP" , "VBZ" , "WDT" , "WP" , "WP$", "WRB" , "``"]
 
 -- | 'all_bigrams' initialises the list of all t|t pairs to 1  (add-1 smoothing by default)
 all_bigrams :: Map (String,String) Int
@@ -53,19 +53,17 @@ tagTagCounts (wt:wts) m = tagTagCounts wts (M.insertWith (+) tt 1 m)
     where tt = (snd wt, snd $ head wts)
 
 -- ================================== COUNT WORD|TAG ===============================
--- Word emission distribution when we multiply over all possible pairings
-
 wordTagCounts :: [(String,String)] -> Map (String, String) Int
 wordTagCounts = foldl (\ m wt -> M.insertWith (+) wt 1 m) M.empty
 
-showWordTags :: Show a => Map (String, String) a -> [String]
-showWordTags m = map prettyWTags $ M.toList m
+showPairCounts :: Show a => Map (String, String) a -> [String]
+showPairCounts m = map prettyWTags $ M.toList m
     where
           prettyWTags :: Show a => ((String, String),a) -> String
-          prettyWTags ((w,t),v) = w ++ "|" ++ t ++ "--> " ++ show v
+          prettyWTags ((w,t),v) = w ++ "|" ++ t ++ " --> " ++ show v
 
-showbig :: Map (String, String) Float -> [String]
-showbig m = map prettyWTags $ M.toList m
+showProbs :: Map (String, String) Float -> [String]
+showProbs m = map prettyWTags $ M.toList m
     where
           prettyWTags :: ((String, String),Float) -> String
           prettyWTags ((w,t),v) = w ++ "|" ++ t ++ " --> " ++ printf "%.8f" v
@@ -99,7 +97,6 @@ parseLoop inh lst =
 parsePair :: String -> [(String,String)]
 parsePair st
     | '|' `elem` l          = let tags = splitOn "|" l in (h,head tags) : [(h,last tags)]
-    | h == "." && l == "."  = ("<start>","<start>") : [(h,l)]
     | otherwise             = [(h,l)]
         where sp = splitOn "<>" st
               h = head sp
@@ -122,13 +119,13 @@ parse fpath = do
    let tagCounts = tcounts pairsList M.empty -- generate the tag counts
    save  "tagC.txt" $ showTags tagCounts
    let wtCounts = wordTagCounts pairsList  -- generate the (w,t) counts
-   save  "wtC.txt" $ showWordTags wtCounts
+   save  "wtC.txt" $ showPairCounts wtCounts
    let ttCounts = tagTagCounts pairsList all_bigrams -- generate the (t,t) counts with add-1 smoothing
-   save  "ttC.txt" $ showWordTags ttCounts
+   save  "ttC.txt" $ showPairCounts ttCounts
 
    -- Probabilities
    let bigramProbs = build_bigram_probs ttCounts tagCounts
    let wordTagProbs = build_wt_probs wtCounts tagCounts
-   save  "bigrams.txt" $ showbig bigramProbs
-   save  "wtProbs.txt" $ showbig wordTagProbs
+   save  "bigrams.txt" $ showProbs bigramProbs
+   save  "wtProbs.txt" $ showProbs wordTagProbs
    return (bigramProbs,wordTagProbs)
