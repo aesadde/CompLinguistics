@@ -97,6 +97,7 @@ parseLoop inh lst =
 parsePair :: String -> [(String,String)]
 parsePair st
     | '|' `elem` l          = let tags = splitOn "|" l in (h,head tags) : [(h,last tags)]
+    -- | h == "." && l == "."  = ("<start>","<start>") : [(h,l)]
     | otherwise             = [(h,l)]
         where sp = splitOn "<>" st
               h = head sp
@@ -110,29 +111,35 @@ save fpath m = do
     hClose outh
     return ()
 
-getSentences :: FilePath -> IO [String]
+getSentences :: FilePath -> IO [(String,[(String,String)])]
 getSentences fpath = do
     inh <- openFile fpath ReadMode
     stns <- getSentences' inh []
     hClose inh
     return stns
 
-getSentences':: Handle -> [String] -> IO [String]
+getSentences':: Handle -> [(String,[(String,String)])] -> IO [(String,[(String,String)])]
 getSentences' inh lst =
     do ineof <- hIsEOF inh
        if ineof
         then return lst
         else do
-            st <- getSentence inh ""
+            st <- getSentence inh ("",[])
             getSentences' inh (st : lst)
 
-getSentence :: Handle -> String -> IO String
-getSentence inh st = do
-    inpStr <- hGetLine inh
-    let w = fst $ head (parsePair inpStr)
-    if w == "."
-       then return (st ++ " .")
-       else getSentence inh (st ++ " " ++  w)
+getSentence :: Handle -> (String,[(String,String)]) -> IO (String,[(String,String)])
+getSentence inh (st,pairs) =
+    do ineof <- hIsEOF inh
+       if ineof
+        then return (st,reverse pairs)
+        else do
+            inpStr <- hGetLine inh
+            let pair  = head $ parsePair inpStr
+            let w = fst pair
+            let res = (st ++ " " ++ w, pair : pairs)
+            if w == "."
+            then return (st ++ " " ++ w, reverse (pair: pairs))
+            else getSentence inh res
 
 -- ================================================================================
 
@@ -143,15 +150,12 @@ parse fpath = do
    hClose inh
    -- Counts
    let tagCounts = tcounts pairsList M.empty -- generate the tag counts
-   save  "tagC.txt" $ showTags tagCounts
    let wtCounts = wordTagCounts pairsList  -- generate the (w,t) counts
-   save  "wtC.txt" $ showPairCounts wtCounts
    let ttCounts = tagTagCounts pairsList all_bigrams -- generate the (t,t) counts with add-1 smoothing
-   save  "ttC.txt" $ showPairCounts ttCounts
 
    -- Probabilities
    let bigramProbs = build_bigram_probs ttCounts tagCounts
    let wordTagProbs = build_wt_probs wtCounts tagCounts
-   save  "bigrams.txt" $ showProbs bigramProbs
-   save  "wtProbs.txt" $ showProbs wordTagProbs
+   -- save  "bigrams.txt" $ showProbs bigramProbs
+   -- save  "wtProbs.txt" $ showProbs wordTagProbs
    return (bigramProbs,wordTagProbs)
