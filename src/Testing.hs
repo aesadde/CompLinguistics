@@ -47,11 +47,11 @@ run_viterbi _           _            []           counts = return counts
 run_viterbi bigramProbs wordTagProbs ((test,validation):test_set) counts = do
      let (_,_,tagged_sentence) = viterbi (words test) bigramProbs wordTagProbs
      let (c,t) = match tagged_sentence validation (0,0)
-     when (c /= t) $ do
-        print "Testing sentence: "
-        print test
-        print "Tagged as: "
-        print tagged_sentence
+     -- when (c /= t) $ do
+     --    print "Testing sentence: "
+     --    print test
+     --    print "Tagged as: "
+     --    print tagged_sentence
      run_viterbi bigramProbs wordTagProbs test_set ((c,t): counts)
 
 runTests :: FilePath -> IO ()
