@@ -9,8 +9,8 @@ import Data.List(foldl')
 
 test_dirs :: [(String,[String])]
 test_dirs = [(tst,filter (/= tst) d) | tst <- dirs, d <- [dirs]]
-    where dirs = ["02","03"]
-    -- where dirs = ["02","03","04","05","06","07","08","09","10","11","12"]
+    -- where dirs = ["02","03"]
+    where dirs = ["02","03","04","05","06","07","08","09","10","11","12"]
 
 -- | 'match' gets a tagged set of words and compares them to the given target
 match :: [(String,String)] -> [(String,String)] -> (Int,Int) -> (Int,Int)
@@ -30,33 +30,36 @@ train fpath (test,dirs) = do
      preprocess [test'] testing  -- get all the test data
      return()
 
-testSentences :: FilePath -> IO ()
+testSentences :: FilePath -> IO [(Int,Int)]
 testSentences test = do
      let training = test ++ "_training.txt"
      let testing = test ++ "_test.txt"
      print $ "Testing on " ++ test
      (bigramProbs, wordTagProbs) <- Parser.parse training--get all probs for current training set
      test_set <- Parser.getSentences testing -- get the list of test sentences
-     counts <- run_viterbi bigramProbs wordTagProbs test_set []
-     let (correct,total) = foldl' (\(c,t) (c',t') -> (c+c',t+t')) (0,0) counts
-     let accuracy = 100 * (fromIntegral correct / fromIntegral total)
-     print $ "Accuracy for test " ++ test ++ " = " ++ show accuracy ++ "%"
-     return()
+     run_viterbi bigramProbs wordTagProbs test_set []
+     -- let (correct,total) = foldl' (\(c,t) (c',t') -> (c+c',t+t')) (0,0) counts
+     -- let accuracy = 100 * (fromIntegral correct / fromIntegral total)
+     -- print $ "Accuracy for test " ++ test ++ " = " ++ show accuracy ++ "%"
 
 run_viterbi :: BiProbMap -> WTProbMap -> [(String,[(String,String)])] -> [(Int,Int)]-> IO [(Int,Int)]
 run_viterbi _           _            []           counts = return counts
 run_viterbi bigramProbs wordTagProbs ((test,validation):test_set) counts = do
      let (_,_,tagged_sentence) = viterbi (words test) bigramProbs wordTagProbs
      let (c,t) = match tagged_sentence validation (0,0)
-     -- when (c /= t) $ do
-     --    print "Testing sentence: "
-     --    print test
-     --    print "Tagged as: "
-     --    print tagged_sentence
+     when (c /= t) $ do
+        print "Testing sentence: "
+        print test
+        print "Tagged as: "
+        print tagged_sentence
      run_viterbi bigramProbs wordTagProbs test_set ((c,t): counts)
 
 runTests :: FilePath -> IO ()
 runTests fpath = do
     mapM_ (train fpath) test_dirs
-    mapM_ (\(d,_) -> testSentences d) test_dirs
+    counts <- mapM (\(d,_) -> testSentences d) test_dirs
+    let counts' = concat counts
+    let (correct,total) = foldl' (\(c,t) (c',t') -> (c+c',t+t')) (0,0) counts'
+    let accuracy = 100 * (fromIntegral correct / fromIntegral total)
+    print (accuracy :: Double)
     return ()

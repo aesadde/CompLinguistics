@@ -156,6 +156,6 @@ parse fpath = do
    -- Probabilities
    let bigramProbs = build_bigram_probs ttCounts tagCounts
    let wordTagProbs = build_wt_probs wtCounts tagCounts
-   save  "bigrams.txt" $ showProbs bigramProbs
-   save  "wtProbs.txt" $ showProbs wordTagProbs
+   -- save  "bigrams.txt" $ showProbs bigramProbs
+   -- save  "wtProbs.txt" $ showProbs wordTagProbs
    return (bigramProbs,wordTagProbs)
