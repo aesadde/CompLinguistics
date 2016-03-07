@@ -14,12 +14,12 @@ tag_set = ["#" , "$" , "''" , "(" , ")" , "," , "." , ":" , "CC" , "CD" , "DT" ,
 all_bigrams :: Map (String,String) Int
 all_bigrams = M.fromList [((x,y),z)| x <- tag_set, y <-tag_set, z <- [1]]
 
-build_bigram_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
+build_bigram_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Double
 build_bigram_probs bmap tmap = fromMaybe  (error "Cannot build bigrams map") (M.traverseWithKey f bmap)
     where f wt _ = Just $ genBigProb wt bmap tmap
 
 
-build_wt_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Float
+build_wt_probs :: Map (String,String) Int -> Map String Int -> Map (String,String) Double
 build_wt_probs bmap tmap = fromMaybe  (error "Cannot build wt map") (M.traverseWithKey f bmap)
     where f wt _ = Just $ genWTProb wt bmap tmap
 
@@ -29,13 +29,13 @@ build_wt_probs bmap tmap = fromMaybe  (error "Cannot build wt map") (M.traverseW
 
 -- | 'genProb' computes P(w|t) = Count(w|tag) / Count(tag)
 --  P(t-1|t) = Count(t-1,t) / Count(t) depending on the maps given
-genBigProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
+genBigProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Double
 genBigProb (w1,w2) m1 m2 = case M.lookup (w2,w1) m1 of
     Just c -> fromIntegral c / ct
     Nothing -> error "This should not happen since all bigrams have at least count 1"
     where ct = fromIntegral $ fromMaybe 0 (M.lookup w2 m2)
 
-genWTProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Float
+genWTProb :: (String, String) -> Map (String,String) Int -> Map String Int -> Double
 genWTProb (w,t) wtmap tmap = case M.lookup (w,t) wtmap of
     Just c -> fromIntegral c / ct
     Nothing -> error "W/T"
@@ -62,10 +62,10 @@ showPairCounts m = map prettyWTags $ M.toList m
           prettyWTags :: Show a => ((String, String),a) -> String
           prettyWTags ((w,t),v) = w ++ "|" ++ t ++ " --> " ++ show v
 
-showProbs :: Map (String, String) Float -> [String]
+showProbs :: Map (String, String) Double -> [String]
 showProbs m = map prettyWTags $ M.toList m
     where
-          prettyWTags :: ((String, String),Float) -> String
+          prettyWTags :: ((String, String),Double) -> String
           prettyWTags ((w,t),v) = w ++ "|" ++ t ++ " --> " ++ printf "%.8f" v
 
 -- ================================== COUNT TAGS ===============================
@@ -143,7 +143,7 @@ getSentence inh (st,pairs) =
 
 -- ================================================================================
 
-parse :: FilePath -> IO (Map (String,String) Float, Map (String,String) Float)
+parse :: FilePath -> IO (Map (String,String) Double, Map (String,String) Double)
 parse fpath = do
    inh <- openFile fpath ReadMode
    pairsList <- parseLoop inh []
@@ -156,6 +156,6 @@ parse fpath = do
    -- Probabilities
    let bigramProbs = build_bigram_probs ttCounts tagCounts
    let wordTagProbs = build_wt_probs wtCounts tagCounts
-   -- save  "bigrams.txt" $ showProbs bigramProbs
-   -- save  "wtProbs.txt" $ showProbs wordTagProbs
+   save  "bigrams.txt" $ showProbs bigramProbs
+   save  "wtProbs.txt" $ showProbs wordTagProbs
    return (bigramProbs,wordTagProbs)

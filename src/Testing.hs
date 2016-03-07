@@ -34,12 +34,13 @@ testSentences :: FilePath -> IO ()
 testSentences test = do
      let training = test ++ "_training.txt"
      let testing = test ++ "_test.txt"
+     print $ "Testing on " ++ test
      (bigramProbs, wordTagProbs) <- Parser.parse training--get all probs for current training set
      test_set <- Parser.getSentences testing -- get the list of test sentences
      counts <- run_viterbi bigramProbs wordTagProbs test_set []
      let (correct,total) = foldl' (\(c,t) (c',t') -> (c+c',t+t')) (0,0) counts
-     let accuracy = fromIntegral correct / fromIntegral total
-     print accuracy
+     let accuracy = 100 * (fromIntegral correct / fromIntegral total)
+     print $ "Accuracy for test " ++ test ++ " = " ++ show accuracy ++ "%"
      return()
 
 run_viterbi :: BiProbMap -> WTProbMap -> [(String,[(String,String)])] -> [(Int,Int)]-> IO [(Int,Int)]
@@ -47,11 +48,11 @@ run_viterbi _           _            []           counts = return counts
 run_viterbi bigramProbs wordTagProbs ((test,validation):test_set) counts = do
      let (_,_,tagged_sentence) = viterbi (words test) bigramProbs wordTagProbs
      let (c,t) = match tagged_sentence validation (0,0)
-     when (c /= t) $ do
-        print "Testing sentence: "
-        print test
-        print "Tagged as: "
-        print tagged_sentence
+     -- when (c /= t) $ do
+     --    print "Testing sentence: "
+     --    print test
+     --    print "Tagged as: "
+     --    print tagged_sentence
      run_viterbi bigramProbs wordTagProbs test_set ((c,t): counts)
 
 runTests :: FilePath -> IO ()
