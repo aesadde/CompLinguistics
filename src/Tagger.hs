@@ -5,6 +5,9 @@ import Parser
 import Testing
 import Viterbi
 import Control.Monad(forever)
+import Types
+import Data.Aeson
+import qualified Data.ByteString.Lazy as B
 
 interactive_tagger :: IO()
 interactive_tagger = forever $ do
@@ -22,6 +25,10 @@ interactive_tagger = forever $ do
 tagger = do
    let prepPairs = "preprocess.txt"
    preprocess ["WSJ-2-12"] prepPairs -- works only if file doesn't exist
+   sentences <- Parser.getSentences prepPairs
+   sentences' <- mapM (\(x,y) -> return $ Sentences x y) sentences
+   B.writeFile "test.json" (toJSON sentences')
+
    (bigramProbs, wordTagProbs) <- Parser.parse prepPairs
    let inp = "My name is John ."
    let input = "Rolls-Royce Motor Cars Inc. said it expects its U.S. sales to remain steady at about 1,200 cars in 1990 ."

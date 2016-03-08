@@ -13,6 +13,7 @@ preprocess dir out =
     doesFileExist out >>= (\x -> unless x $
     mapM getRecursiveContents dir >>= (\y -> preprocessLoop (tail $ concat y)  out))
 
+
 -- | `preprocessLoop` takes a list of files and processes them
 preprocessLoop :: [FilePath] -> FilePath -> IO()
 preprocessLoop [] _ = return ()

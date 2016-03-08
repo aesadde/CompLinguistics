@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Viterbi(viterbi) where
 import Data.Map(Map)
 import qualified Data.Map.Strict as M
@@ -53,11 +55,11 @@ scoresAndBack [_] scores _ _ backp                    = (scores, backp)
 scoresAndBack (prev:curr:stn) scores bmap wtmap backp = scoresAndBack (curr:stn) scores' bmap wtmap backp'
     -- for each tag in the tag set get the max score for the current word
     -- i.e. this is one column of the Scores matrix
-    where wordScores                             = map (\tag -> (tag,maxScore prev curr scores bmap wtmap tag)) tag_set
+    where !wordScores                             = map (\tag -> (tag,maxScore prev curr scores bmap wtmap tag)) tag_set
     --  insert the max score into the map for every tag and current word
-          scores'                                = mapFold wordScores (\m (curr_t,(_,score)) -> M.insert (curr_t,curr) score m) scores
+          !scores'                                = mapFold wordScores (\m (curr_t,(_,score)) -> M.insert (curr_t,curr) score m) scores
     --  store the tag for the maximum score for the given (tag,word)
-          backp'                                 = mapFold wordScores (\m (curr_t,(tag,_)) -> M.insert (curr_t,curr) tag m) backp
+          !backp'                                 = mapFold wordScores (\m (curr_t,(tag,_)) -> M.insert (curr_t,curr) tag m) backp
 
 getBestScore :: Word -> Scores -> (Tag,Word,Double)
 getBestScore last_w scores = maximumBy (comparing (\(_,_,x) -> x)) lastw_scores
@@ -80,7 +82,8 @@ maxScore prev_w curr scores bmap wtmap tag = maximumBy (comparing snd) maxScores
         where mult s@(t,_) = (t,curr_score s * bi_prob t)
               curr_score s = getProb s scores         -- get score of (tag,prev_w)
               bi_prob t    = getProb (tag,t) bmap     -- get the (t,t-1) probability
-              maxScores    = zipWith (\sc (t,s) -> (t,sc*s)) (handle_unknown curr wtmap tag) tagWords
+              maxScores    = zipWith (\pwt (t,s) -> (t,pwt*s)) prob_wt tagWords
+              prob_wt      = handle_unknown curr wtmap tag -- get the p(w,t) and check if unknown word
               tagWords     = map mult [(ts,prev_w) | ts <- tag_set]
 
 -- | 'handle_unknown' returns a list of p(w,t) is the current (w,t) pair exists
@@ -89,4 +92,4 @@ maxScore prev_w curr scores bmap wtmap tag = maximumBy (comparing snd) maxScores
 handle_unknown :: Word -> WTProbMap -> Tag -> [Double]
 handle_unknown curr wtmap tag = case M.lookup (curr,tag) wtmap of
      Just x -> replicate (length tag_set) x --word is known so we use same prob
-     Nothing -> getWordProbs curr wtmap
+     Nothing -> getWordProbs curr wtmap -- not (word,tag) check if the word is unknown

@@ -112,14 +112,14 @@ save fpath m = do
     hClose outh
     return ()
 
-getSentences :: FilePath -> IO [(String,TaggedSentence)]
+getSentences :: FilePath -> IO [(Sentence,TaggedSentence)]
 getSentences fpath = do
     inh <- openFile fpath ReadMode
     stns <- getSentences' inh []
     hClose inh
     return stns
 
-getSentences':: Handle -> [(String,TaggedSentence)] -> IO [(String,TaggedSentence)]
+getSentences':: Handle -> [(Sentence,TaggedSentence)] -> IO [(Sentence,TaggedSentence)]
 getSentences' inh lst =
     do ineof <- hIsEOF inh
        if ineof
@@ -128,18 +128,18 @@ getSentences' inh lst =
             st <- getSentence inh ("",[])
             getSentences' inh (st : lst)
 
-getSentence :: Handle -> (String,TaggedSentence) -> IO (String,TaggedSentence)
+getSentence :: Handle -> (String,TaggedSentence) -> IO (Sentence,TaggedSentence)
 getSentence inh (st,pairs) =
     do ineof <- hIsEOF inh
        if ineof
-        then return (st,reverse pairs)
+        then return (words st,reverse pairs)
         else do
             inpStr <- hGetLine inh
             let pair  = head $ parsePair inpStr
             let w = fst pair
             let res = (st ++ " " ++ w, pair : pairs)
             if w == "."
-            then return (st ++ " " ++ w, reverse (pair: pairs))
+            then return (words $ st ++ " " ++ w, reverse (pair: pairs))
             else getSentence inh res
 
 -- ================================================================================
